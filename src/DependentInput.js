@@ -8,7 +8,7 @@ import getValue from './getValue';
 
 const REDUX_FORM_NAME = 'record-form';
 
-export const DependentInputComponent = ({ children, show, dependsOn, value, resolve, ...props }) => {
+export const DependentInputComponent = ({ children, show, dependsOn, value, source, resolve, ...props }) => {
     if (!show) {
         return null;
     }
@@ -29,6 +29,18 @@ export const DependentInputComponent = ({ children, show, dependsOn, value, reso
         );
     }
 
+    const sourceMatch = source.match(/^(.+?\[\d+\])\..+?$/);
+
+    if (sourceMatch) {
+        const childrenWithPrefix = React.cloneElement(children, { source: `${sourceMatch[1]}.${children.props.source}` });
+
+        return (
+            <div key={childrenWithPrefix.props.source} style={childrenWithPrefix.props.style} className={`aor-input-${childrenWithPrefix.props.source}`}>
+                <FormField input={childrenWithPrefix} {...props} />
+            </div>
+        );
+    }
+
     return (
         <div key={children.props.source} style={children.props.style} className={`aor-input-${children.props.source}`}>
             <FormField input={children} {...props} />
@@ -43,9 +55,10 @@ DependentInputComponent.propTypes = {
     value: PropTypes.any,
     resolve: PropTypes.func,
     formName: PropTypes.string,
+    source: PropTypes.string,
 };
 
-export const mapStateToProps = (state, { resolve, dependsOn, value, formName = REDUX_FORM_NAME }) => {
+export const mapStateToProps = (state, { resolve, source, dependsOn, value, formName = REDUX_FORM_NAME }) => {
     if (resolve && (dependsOn === null || typeof dependsOn === 'undefined')) {
         const values = getFormValues(formName)(state);
         return { dependsOnValue: values, show: resolve(values, dependsOn, value) };
@@ -57,7 +70,7 @@ export const mapStateToProps = (state, { resolve, dependsOn, value, formName = R
         // We have to destructure the array here as redux-form does not accept an array of fields
         formValue = formValueSelector(formName)(state, ...dependsOn);
     } else {
-        formValue = formValueSelector(formName)(state, dependsOn);
+        formValue = formValueSelector(formName)(state, dependsOn) || formValueSelector(formName)(state, source);
     }
 
     if (resolve) {
